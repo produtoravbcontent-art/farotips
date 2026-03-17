@@ -39,6 +39,9 @@ input[type=color]{width:32px;height:32px;padding:2px;cursor:pointer;border-radiu
 .btn-regen{width:100%;padding:7px;background:transparent;color:#555;border:1px solid #1e1e1e;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;font-family:'Anton',sans-serif;transition:all .2s;margin-top:4px}
 .btn-regen:hover:not(:disabled){border-color:#555;color:#888}
 .btn-regen:disabled{opacity:.4;cursor:not-allowed}
+#progress-wrap{display:none;margin-top:6px;background:#111;border:1px solid #222;border-radius:6px;overflow:hidden;height:24px;position:relative}
+#progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#00e676,#00c853);border-radius:6px;transition:width .5s ease}
+#progress-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:2px;color:#fff;font-family:Anton,sans-serif;text-shadow:0 0 6px rgba(0,0,0,1)}
 .fmt-row{display:flex;gap:5px}
 .fmt-btn{flex:1;padding:8px;border-radius:6px;cursor:pointer;border:1px solid #1e1e1e;background:transparent;color:#444;font-family:'Anton',sans-serif;font-size:11px;letter-spacing:1px;transition:all .2s}
 .fmt-btn.active{border-color:#00e676;color:#00e676;background:#061206}
@@ -96,6 +99,7 @@ input[type=color]{width:32px;height:32px;padding:2px;cursor:pointer;border-radiu
       <button class="pb"        id="pb2" onclick="setPStyle('torcedores',this)"><span class="pbi">🙌</span><span class="pbt">TORCED.</span></button>
     </div>
     <button class="btn-regen" id="br" onclick="regenBg()">↺ GERAR FUNDO COM IA</button>
+    <div id="progress-wrap"><div id="progress-bar"></div><div id="progress-text">GERANDO...</div></div>
   </div>
   <div class="hr"></div>
 
@@ -282,6 +286,36 @@ function setPStyle(ps,btn){
 }
 
 // GEMINI
+// Simulação de progresso animado
+let _pgTimer=null;
+function startProgress(){
+  const pw=document.getElementById('progress-wrap');
+  const pb=document.getElementById('progress-bar');
+  const pt=document.getElementById('progress-text');
+  pw.style.display='block'; pb.style.width='0%';
+  const steps=[
+    [400,'8%','INICIANDO...'],
+    [1200,'25%','CRIANDO CENA...'],
+    [2500,'45%','GERANDO IA...'],
+    [4000,'65%','ADICIONANDO TORCIDA...'],
+    [5500,'80%','FINALIZANDO...'],
+    [7000,'92%','QUASE PRONTO...'],
+  ];
+  steps.forEach(([delay,w,txt])=>{
+    _pgTimer=setTimeout(()=>{pb.style.width=w;pt.textContent=txt;},delay);
+  });
+}
+function finishProgress(ok){
+  clearTimeout(_pgTimer);
+  const pb=document.getElementById('progress-bar');
+  const pt=document.getElementById('progress-text');
+  const pw=document.getElementById('progress-wrap');
+  pb.style.width='100%';
+  pt.textContent=ok?'CONCLUÍDO ✓':'ERRO — USANDO FOTO PADRÃO';
+  pb.style.background=ok?'linear-gradient(90deg,#00e676,#00c853)':'linear-gradient(90deg,#e05555,#c03030)';
+  setTimeout(()=>{pw.style.display='none';pb.style.width='0%';pb.style.background='linear-gradient(90deg,#00e676,#00c853)';},2000);
+}
+
 async function regenBg(){
   if(S.gen)return;
   const a=document.getElementById('tA').value||'home team';
@@ -291,18 +325,46 @@ async function regenBg(){
   setSt('load','Gerando com Gemini...');
   const btn=document.getElementById('br');
   btn.textContent='GERANDO...'; btn.disabled=true;
-  try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${_k()}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:['IMAGE','TEXT']}}),
-    });
-    const data=await res.json();
-    const part=data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
-    if(!part)throw new Error('sem imagem');
-    S.bgUrl=`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-    setSt('ok',SL[S.bgType]+' — IA gerou ✓');
-  }catch{S.bgUrl=FB[S.bgType]||FB.stadium;setSt('err','IA indisponível — foto padrão');}
-  finally{S.gen=false;btn.textContent='↺ GERAR FUNDO COM IA';btn.disabled=false;render();}
+  startProgress();
+
+  // Tenta múltiplos modelos em sequência
+  const endpoints=[
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${_k()}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${_k()}`,
+  ];
+
+  let generated=false;
+  for(const url of endpoints){
+    try{
+      const res=await fetch(url,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[{text:prompt}]}],
+          generationConfig:{responseModalities:['IMAGE','TEXT']},
+        }),
+      });
+      if(!res.ok) continue;
+      const data=await res.json();
+      const part=data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
+      if(!part) continue;
+      S.bgUrl=`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      setSt('ok',SL[S.bgType]+' — IA gerou ✓');
+      finishProgress(true);
+      generated=true;
+      break;
+    }catch(e){ continue; }
+  }
+
+  if(!generated){
+    S.bgUrl=FB[S.bgType]||FB.stadium;
+    setSt('err','IA indisponível — foto padrão');
+    finishProgress(false);
+  }
+
+  S.gen=false;
+  btn.textContent='↺ GERAR FUNDO COM IA';
+  btn.disabled=false;
+  render();
 }
 
 function setSt(t,m){
@@ -376,36 +438,40 @@ function buildCard(W,H,cid){
   const slipRealH=S.slipH[cid];
   const slipEstH=slipRealH?slipRealH:(S.img?Math.round(sw*.72):Math.round(58*sc));
   const gap=Math.round(4*sc), bw=Math.max(3,Math.round(3.5*sc)), pv=Math.round(5*sc);
-  const l1H=l1v?(Math.round(50*sc)+pv*2):0;
-  const l2H=l2v?(Math.round(38*sc)+pv*2+bw*2):0;
-  const l3H=l3v?(Math.round(30*sc)+pv*2+bw*2):0;
+  // Reduz fonte no 1x1 para caber tudo
+  const l1fs=isS?Math.round(50*sc):Math.round(34*sc);
+  const l2fs=isS?Math.round(38*sc):Math.round(26*sc);
+  const l3fs=isS?Math.round(30*sc):Math.round(20*sc);
+  const l1H=l1v?(l1fs+pv*2):0;
+  const l2H=l2v?(l2fs+pv*2+bw*2):0;
+  const l3H=l3v?(l3fs+pv*2+bw*2):0;
   const totalL=l1H+l2H+l3H+gap*2;
-  const startY=st+slipEstH+Math.round(10*sc);
+  const startY=st+slipEstH+Math.round(8*sc);
   const available=H-startY-sBot;
-  const lTop=Math.round(available>=totalL?startY:Math.max(startY,H-sBot-totalL));
+  const lTop=Math.round(available>=totalL?startY:Math.max(startY,H-safeBot*0.5-totalL));
 
   const ld=document.createElement('div'); ld.className='ltrs';
   ld.style.cssText=`top:${lTop}px;gap:${gap}px`;
 
   if(l1v){
     const w=document.createElement('div');
-    w.style.cssText=`text-align:center;padding:0 ${Math.round(8*sc)}px`;
+    w.style.cssText=`text-align:center;padding:0 ${Math.round(6*sc)}px`;
     const s=document.createElement('span'); s.className='l1t'; s.textContent=l1v;
-    s.style.cssText=`font-size:${Math.round(50*sc)}px;color:${l1c};text-shadow:0 0 ${Math.round(12*sc)}px rgba(0,0,0,1),0 ${Math.round(3*sc)}px ${Math.round(10*sc)}px rgba(0,0,0,1);-webkit-text-stroke:${Math.max(1,Math.round(1.2*sc))}px rgba(0,0,0,.55);letter-spacing:${Math.round(.5*sc)}px`;
+    s.style.cssText=`font-size:${l1fs}px;color:${l1c};text-shadow:0 0 ${Math.round(12*sc)}px rgba(0,0,0,1),0 ${Math.round(3*sc)}px ${Math.round(10*sc)}px rgba(0,0,0,1);-webkit-text-stroke:${Math.max(1,Math.round(1.2*sc))}px rgba(0,0,0,.55);letter-spacing:${Math.round(.5*sc)}px`;
     w.appendChild(s); ld.appendChild(w);
   }
   if(l2v){
     const w=document.createElement('div'); w.className='l2w';
-    w.style.cssText=`border-top:${bw}px solid #000;border-bottom:${bw}px solid #000;padding:${pv}px ${Math.round(8*sc)}px`;
+    w.style.cssText=`border-top:${bw}px solid #000;border-bottom:${bw}px solid #000;padding:${pv}px ${Math.round(6*sc)}px`;
     const s=document.createElement('span'); s.className='l2t'; s.textContent=l2v;
-    s.style.cssText=`font-size:${Math.round(38*sc)}px;letter-spacing:${Math.round(.5*sc)}px`;
+    s.style.cssText=`font-size:${l2fs}px;letter-spacing:${Math.round(.5*sc)}px`;
     w.appendChild(s); ld.appendChild(w);
   }
   if(l3v){
     const w=document.createElement('div'); w.className='l3w';
-    w.style.cssText=`border-top:${bw}px solid ${l3c};border-bottom:${bw}px solid ${l3c};padding:${pv}px ${Math.round(8*sc)}px`;
+    w.style.cssText=`border-top:${bw}px solid ${l3c};border-bottom:${bw}px solid ${l3c};padding:${pv}px ${Math.round(6*sc)}px`;
     const s=document.createElement('span'); s.className='l3t'; s.textContent=l3v;
-    s.style.cssText=`font-size:${Math.round(30*sc)}px;color:${l3c};letter-spacing:${Math.round(.5*sc)}px`;
+    s.style.cssText=`font-size:${l3fs}px;color:${l3c};letter-spacing:${Math.round(.5*sc)}px`;
     w.appendChild(s); ld.appendChild(w);
   }
   card.appendChild(ld);
