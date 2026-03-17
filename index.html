@@ -283,8 +283,7 @@ function setPStyle(ps,btn){
   btn.classList.add('active');
 }
 
-// GEMINI
-// Simulação de progresso animado
+// PROGRESSO ANIMADO
 let _pgTimer=null;
 function startProgress(){
   const pw=document.getElementById('progress-wrap');
@@ -318,32 +317,34 @@ async function regenBg(){
   if(S.gen)return;
   const a=document.getElementById('tA').value||'home team';
   const b=document.getElementById('tB').value||'away team';
-  const prompt=PS[S.ps].build(S.bgType,a,b);
+  // Limit prompt to 400 chars — long URLs can fail on some servers
+  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,400);
   S.gen=true;
   setSt('load','Gerando com IA...');
   const btn=document.getElementById('br');
   btn.textContent='GERANDO...'; btn.disabled=true;
   startProgress();
 
-  // Pollinations.ai — 100% free, sem API key, ~15 imgs/dia de boa
   const seed=Math.floor(Math.random()*99999);
-  const encoded=encodeURIComponent(prompt);
-  const pollUrl=`https://image.pollinations.ai/prompt/${encoded}?width=540&height=960&seed=${seed}&nologo=true&enhance=true&model=flux`;
+  const pollUrl=`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=540&height=960&seed=${seed}&nologo=true&model=flux`;
 
   try{
-    // Pré-carrega a imagem para confirmar que gerou
-    await new Promise((resolve,reject)=>{
-      const img=new Image();
-      img.crossOrigin='anonymous';
-      img.onload=resolve;
-      img.onerror=reject;
-      img.src=pollUrl;
-      setTimeout(()=>reject(new Error('timeout')),25000);
+    // Fetch como blob e converte para data URL
+    // Isso resolve CORS no preview E no html2canvas export
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),35000);
+    const res=await fetch(pollUrl,{signal:controller.signal});
+    clearTimeout(timer);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const blob=await res.blob();
+    S.bgUrl=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result);
+      r.onerror=()=>rej(new Error('FileReader failed'));
+      r.readAsDataURL(blob);
     });
-    S.bgUrl=pollUrl;
     setSt('ok',SL[S.bgType]+' — IA gerou ✓');
     finishProgress(true);
-    console.info('[FaroTips] Pollinations OK:',pollUrl);
   }catch(e){
     console.warn('[FaroTips] Pollinations falhou:',e.message);
     S.bgUrl=FB[S.bgType]||FB.stadium;
