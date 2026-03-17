@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FaroTips — Gerador de Cards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -337,7 +339,7 @@ async function regenBg(){
   if(S.gen)return;
   const a=document.getElementById('tA').value||'home team';
   const b=document.getElementById('tB').value||'away team';
-  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,300);
+  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,200);
   S.gen=true;
   setSt('load','Gerando com IA...');
   const btn=document.getElementById('br');
@@ -345,40 +347,44 @@ async function regenBg(){
   startProgress();
 
   const seed=Math.floor(Math.random()*99999);
-  const pollUrl='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model=flux';
+  const base='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model=';
+  const models=['flux','turbo','nanobanana'];
 
-  dbg('URL gerada — aguardando imagem...','init');
-
-  await new Promise(function(resolve){
+  function tryModel(idx, resolve){
+    if(idx >= models.length){
+      S.bgUrl=FB[S.bgType]||FB.stadium;
+      setSt('err','IA indisponível — foto padrão');
+      finishProgress(false);
+      dbg('Todos os modelos falharam','all-failed');
+      resolve(); return;
+    }
+    var model=models[idx];
+    var url=base+model;
+    dbg('Tentando modelo: '+model+' ('+idx+'/'+models.length+')','trying');
+    var img=new Image();
     var done=false;
-    var img=new Image(); // SEM crossOrigin — evita bloqueio CORS silencioso
-
-    var finish=function(ok, reason){
+    var finish=function(ok){
       if(done)return; done=true;
-      clearTimeout(tOut);
-      img.onload=null; img.onerror=null;
+      clearTimeout(t);
+      img.onload=img.onerror=null;
       if(ok){
-        S.bgUrl=pollUrl;
-        setSt('ok',SL[S.bgType]+' — IA gerou ✓');
+        S.bgUrl=url;
+        setSt('ok',SL[S.bgType]+' — IA gerou ✓ ('+model+')');
         finishProgress(true);
-        dbg('Imagem carregada! w='+img.naturalWidth+' h='+img.naturalHeight,'success');
+        dbg('OK com '+model+' w='+img.naturalWidth,'success');
+        resolve();
       } else {
-        S.bgUrl=FB[S.bgType]||FB.stadium;
-        setSt('err','IA indisponível — foto padrão');
-        finishProgress(false);
-        dbg('Falhou: '+reason,'error');
+        dbg('Falhou '+model+' — tentando próximo...','retry');
+        tryModel(idx+1, resolve);
       }
-      resolve();
     };
+    var t=setTimeout(function(){ finish(false); }, 40000);
+    img.onload=function(){ finish(true); };
+    img.onerror=function(){ finish(false); };
+    img.src=url;
+  }
 
-    var tOut=setTimeout(function(){
-      finish(false,'Timeout 90s — Pollinations sem resposta');
-    }, 90000);
-
-    img.onload=function(){ finish(true,'ok'); };
-    img.onerror=function(){ finish(false,'img.onerror disparou'); };
-    img.src=pollUrl;
-  });
+  await new Promise(function(resolve){ tryModel(0, resolve); });
 
   S.gen=false;
   btn.textContent='↺ GERAR FUNDO COM IA';
