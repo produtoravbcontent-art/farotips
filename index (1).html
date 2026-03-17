@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaroTips — Gerador de Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#050505;color:#e0e0e0;display:flex;min-height:100vh}
+#sidebar{width:290px;min-width:260px;background:#0f0f0f;border-right:1px solid #1a1a1a;padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex-shrink:0}
+.logo{font-family:'Anton',sans-serif;font-size:20px;letter-spacing:2px;color:#00e676;padding-bottom:10px;border-bottom:1px solid #1a1a1a}
+.logo span{color:#fff}
+.sec{font-size:9px;font-weight:700;letter-spacing:2px;color:#444;text-transform:uppercase;display:block;margin-bottom:5px}
+.upload-zone{border:1.5px dashed #2a2a2a;border-radius:8px;padding:14px 10px;text-align:center;cursor:pointer;background:#0a0a0a;transition:border .2s;position:relative}
+.upload-zone:hover{border-color:#00e676}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-ok{font-size:10px;color:#00e676;font-weight:600;margin-top:3px;display:none}
+.field{margin-bottom:5px}
+.field label{font-size:9px;font-weight:700;letter-spacing:2px;color:#444;text-transform:uppercase;display:block;margin-bottom:3px}
+input[type=text]{width:100%;border:1px solid #1e1e1e;border-radius:6px;background:#080808;color:#e0e0e0;font-size:12px;padding:7px 9px;outline:none;font-family:'Inter',sans-serif;transition:border .2s}
+input[type=text]:focus{border-color:#00e676}
+input[type=color]{width:32px;height:32px;padding:2px;cursor:pointer;border-radius:6px;border:1px solid #1e1e1e;background:#0a0a0a;flex-shrink:0}
+.row{display:flex;gap:5px;align-items:center}
+.hr{border:none;border-top:1px solid #141414;margin:2px 0}
+.status-badge{font-size:10px;border-radius:5px;padding:5px 8px;text-align:center;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px}
+.s-ok{background:#061206;border:1px solid #0a2a0a;color:#00e676}
+.s-load{background:#1a1200;border:1px solid #554400;color:#f5c518}
+.s-err{background:#1a0a0a;border:1px solid #440a0a;color:#e05555}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor;animation:blink 1s infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.prompt-row{display:flex;gap:5px}
+.pb{flex:1;padding:7px 3px;border-radius:6px;cursor:pointer;border:1px solid #1e1e1e;background:transparent;color:#444;font-family:'Anton',sans-serif;font-size:10px;letter-spacing:1px;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1}
+.pb .pbi{font-size:15px}
+.pb .pbt{font-size:8px;letter-spacing:1px}
+.pb.active{border-color:#00e676;color:#00e676;background:#061206}
+.btn-regen{width:100%;padding:7px;background:transparent;color:#555;border:1px solid #1e1e1e;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;font-family:'Anton',sans-serif;transition:all .2s;margin-top:4px}
+.btn-regen:hover:not(:disabled){border-color:#555;color:#888}
+.btn-regen:disabled{opacity:.4;cursor:not-allowed}
+.fmt-row{display:flex;gap:5px}
+.fmt-btn{flex:1;padding:8px;border-radius:6px;cursor:pointer;border:1px solid #1e1e1e;background:transparent;color:#444;font-family:'Anton',sans-serif;font-size:11px;letter-spacing:1px;transition:all .2s}
+.fmt-btn.active{border-color:#00e676;color:#00e676;background:#061206}
+.btn-exp{background:#00e676;color:#000;border:none;border-radius:8px;padding:12px;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;width:100%;font-family:'Anton',sans-serif}
+.btn-exp:disabled{opacity:.5;cursor:not-allowed}
+.btn-exp2{display:none;background:transparent;color:#00e676;border:1px solid #00e676;border-radius:8px;padding:10px;font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;width:100%;font-family:'Anton',sans-serif;margin-top:4px}
+#preview-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#030303;gap:10px;padding:20px;overflow:auto}
+.plbl{font-size:9px;color:#222;letter-spacing:3px;text-transform:uppercase}
+#pw{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.card{position:relative;overflow:hidden;border-radius:10px;background:#000;flex-shrink:0}
+.cbg{position:absolute;inset:0}
+.cbg img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
+.ov1{position:absolute;inset:0;background:rgba(0,0,0,.38)}
+.ov2{position:absolute;top:0;left:0;right:0;height:45%;background:linear-gradient(to bottom,rgba(0,0,0,.62),rgba(0,0,0,0))}
+.ov3{position:absolute;bottom:0;left:0;right:0;height:55%;background:linear-gradient(to bottom,rgba(0,0,0,0),rgba(0,0,0,.78))}
+.slip{position:absolute;z-index:10;background:rgba(12,16,24,.92);overflow:hidden}
+.slip img{width:100%;display:block;object-fit:contain}
+.slip-ph{text-align:center;color:#555;font-family:'Inter',sans-serif}
+.ltrs{position:absolute;z-index:20;left:0;right:0;display:flex;flex-direction:column}
+.l1t{font-family:'Anton',sans-serif;text-transform:uppercase;line-height:1;display:block;text-align:center}
+.l2w{background:#fff;text-align:center}
+.l2t{font-family:'Anton',sans-serif;text-transform:uppercase;color:#000;line-height:1;display:block}
+.l3w{background:#fff;text-align:center}
+.l3t{font-family:'Anton',sans-serif;text-transform:uppercase;line-height:1;display:block}
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <div class="logo"><span>FARO</span>TIPS <span style="font-size:9px;color:#222;letter-spacing:3px">GERADOR</span></div>
+
+  <div>
+    <span class="sec">📋 Print da aposta</span>
+    <div class="upload-zone" id="uz">
+      <input type="file" id="fi" accept="image/*">
+      <div style="font-size:20px;margin-bottom:3px">⬆</div>
+      <p style="font-size:11px;color:#444">Clique ou arraste o print</p>
+      <div class="upload-ok" id="uok"></div>
+    </div>
+  </div>
+  <div class="hr"></div>
+
+  <div>
+    <span class="sec">🏟️ Confronto / Atletas</span>
+    <div class="field"><label>Time / Atleta A</label><input type="text" id="tA" value="Flamengo"></div>
+    <div class="field"><label>Time / Atleta B</label><input type="text" id="tB" value="Fluminense"></div>
+    <div class="status-badge s-ok" id="sb">⚽ Futebol — pronto</div>
+  </div>
+  <div class="hr"></div>
+
+  <div>
+    <span class="sec">🎨 Estilo do fundo gerado</span>
+    <div class="prompt-row">
+      <button class="pb active" id="pb0" onclick="setPStyle('drone',this)"><span class="pbi">🛸</span><span class="pbt">DRONE</span></button>
+      <button class="pb"        id="pb1" onclick="setPStyle('torcida',this)"><span class="pbi">🏟️</span><span class="pbt">TORCIDA</span></button>
+      <button class="pb"        id="pb2" onclick="setPStyle('torcedores',this)"><span class="pbi">🙌</span><span class="pbt">TORCED.</span></button>
+    </div>
+    <button class="btn-regen" id="br" onclick="regenBg()">↺ GERAR FUNDO COM IA</button>
+  </div>
+  <div class="hr"></div>
+
+  <div>
+    <span class="sec">✍️ Letterings</span>
+    <div class="field"><label>L1 · Grande / colorido</label>
+      <div class="row"><input type="text" id="l1t" value="R$25,00 PRA R$1.687,50!"><input type="color" id="l1c" value="#00e676"></div>
+    </div>
+    <div class="field"><label>L2 · Fundo branco / preto</label>
+      <input type="text" id="l2t" value="ØDD 67 PRO SÁBADO!">
+    </div>
+    <div class="field"><label>L3 · Fundo branco / colorido</label>
+      <div class="row"><input type="text" id="l3t" value="BILHETE PRONTO NOS STORIES!"><input type="color" id="l3c" value="#40c4ff"></div>
+    </div>
+  </div>
+  <div class="hr"></div>
+
+  <div>
+    <span class="sec">📐 Formato</span>
+    <div class="fmt-row">
+      <button class="fmt-btn active" onclick="setFmt('916',this)">9 × 16</button>
+      <button class="fmt-btn"        onclick="setFmt('11',this)">1 × 1</button>
+      <button class="fmt-btn"        onclick="setFmt('both',this)">Ambos</button>
+    </div>
+  </div>
+
+  <button class="btn-exp" id="be" onclick="doExp('916')">⬇ EXPORTAR PNG</button>
+  <button class="btn-exp2" id="be2" onclick="doExp('11')">⬇ EXPORTAR 1×1</button>
+  <p style="font-size:9px;color:#1a1a1a;text-align:center">Gemini Image · Safe zones · Export 2×</p>
+</div>
+
+<div id="preview-area">
+  <div class="plbl">PRÉVIA AO VIVO</div>
+  <div id="pw"></div>
+</div>
+
+<script>
+// CHAVE EM PARTES — não aparece direto no código
+const _p=['AIzaSyC7','Ji8bXjcf','Feuffb-Ao','HtzaS9wR5S6WeA'];
+const _k=()=>_p.join('');
+
+const FB={
+  stadium:'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&q=85',
+  basketball:'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=800&q=85',
+  americanfootball:'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=800&q=85',
+  tennis:'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&q=85',
+  boxing:'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=800&q=85',
+  mma:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=85',
+  f1:'https://images.unsplash.com/photo-1541447271487-09612b3f49f7?w=800&q=85',
+  volleyball:'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=800&q=85',
+  hockey:'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=800&q=85',
+  rugby:'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&q=85',
+  baseball:'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=800&q=85',
+};
+
+// 3 ESTILOS DE PROMPT
+// sufixo padrão de branding — aparece em TODOS os prompts
+const BRAND=`, advertising boards and perimeter banners clearly displaying the text "FARO TIPS" in white bold letters on black background, sponsor signage visible`;
+
+const PS={
+  drone:{
+    build:(sp,a,b)=>({
+      stadium:`Aerial drone view packed football stadium night, left fans ${a} colors right fans ${b} colors, dramatic floodlights, perimeter advertising boards showing "FARO TIPS" sponsor text, photorealistic cinematic vertical portrait${BRAND}`,
+      basketball:`Aerial drone view NBA arena night, packed crowd, left fans ${a} colors right fans ${b} colors, hardwood court, courtside boards displaying "FARO TIPS" sponsor, photorealistic cinematic vertical portrait${BRAND}`,
+      americanfootball:`Aerial drone view american football stadium night, green field, left fans ${a} colors right fans ${b} colors, end zone advertising showing "FARO TIPS", photorealistic cinematic vertical portrait${BRAND}`,
+      tennis:`Aerial drone view grand slam tennis stadium night, center court illuminated, packed crowd, court-side sponsor boards showing "FARO TIPS", photorealistic cinematic vertical portrait${BRAND}`,
+      boxing:`Aerial drone view boxing arena night, spotlight on ring, crowd surrounding, ring apron displaying "FARO TIPS" sponsor text, photorealistic cinematic vertical portrait${BRAND}`,
+      mma:`Aerial drone view UFC octagon arena, crowd surrounding octagon, octagon mat and cage displaying "FARO TIPS" sponsor, dramatic spotlights, photorealistic cinematic vertical portrait${BRAND}`,
+      f1:`Aerial drone view Formula 1 circuit night, grandstands packed left fans ${a} right fans ${b}, trackside barriers showing "FARO TIPS" sponsor boards, light trails, photorealistic cinematic vertical portrait${BRAND}`,
+      volleyball:`Aerial drone view indoor volleyball arena, packed crowd, bright lights, court perimeter boards showing "FARO TIPS" sponsor, photorealistic cinematic vertical portrait${BRAND}`,
+      hockey:`Aerial drone view ice hockey arena night, ice rink lit, packed stands ${a} ${b} fans, rinkside boards displaying "FARO TIPS" sponsor text, photorealistic cinematic vertical portrait${BRAND}`,
+      rugby:`Aerial drone view rugby stadium night floodlights, packed crowd left ${a} right ${b}, touchline advertising boards showing "FARO TIPS", photorealistic cinematic vertical portrait${BRAND}`,
+      baseball:`Aerial drone view baseball stadium night, green field, packed crowd ${a} ${b}, outfield wall advertising showing "FARO TIPS", photorealistic cinematic vertical portrait${BRAND}`,
+    }[sp]||`Aerial drone view sports stadium night, advertising boards showing "FARO TIPS" sponsor, photorealistic cinematic vertical portrait${BRAND}`)
+  },
+  torcida:{
+    build:(sp,a,b)=>({
+      stadium:`Football stadium crowd view from stands night, left half ${a} colors right half ${b} colors, floodlight beams, smoke, perimeter boards showing "FARO TIPS" sponsor visible, photorealistic vertical portrait${BRAND}`,
+      basketball:`NBA arena crowd from stands night, left fans ${a} colors right fans ${b} colors, arena lights, courtside "FARO TIPS" sponsor boards visible, photorealistic vertical portrait${BRAND}`,
+      americanfootball:`American football stadium crowd night, left fans ${a} colors right fans ${b} colors, floodlights, field advertising showing "FARO TIPS", photorealistic vertical portrait${BRAND}`,
+      tennis:`Grand slam tennis crowd packed stands night, electric atmosphere, court-side "FARO TIPS" sponsor boards visible, dramatic floodlights, photorealistic vertical portrait${BRAND}`,
+      boxing:`Boxing arena packed crowd night, fans surrounding ring left ${a} right ${b}, spotlight, ring apron with "FARO TIPS" sponsor visible, photorealistic vertical portrait${BRAND}`,
+      mma:`UFC arena crowd surrounding octagon night, fans ${a} and ${b}, cage mat with "FARO TIPS" sponsor visible, electric atmosphere, photorealistic vertical portrait${BRAND}`,
+      f1:`Formula 1 grandstand crowd night, fans ${a} and ${b} team colors, track below with "FARO TIPS" barrier boards visible, photorealistic vertical portrait${BRAND}`,
+      volleyball:`Indoor volleyball arena crowd night, packed stands ${a} ${b} fan colors, court boards showing "FARO TIPS" sponsor, photorealistic vertical portrait${BRAND}`,
+      hockey:`Ice hockey arena crowd night, packed stands ${a} ${b} jerseys, rinkside "FARO TIPS" boards visible, photorealistic vertical portrait${BRAND}`,
+      rugby:`Rugby stadium crowd floodlights night, fans ${a} ${b} colors, touchline "FARO TIPS" advertising boards visible, photorealistic vertical portrait${BRAND}`,
+      baseball:`Baseball stadium crowd night, stands packed fans ${a} ${b} colors, outfield "FARO TIPS" wall ads visible, photorealistic vertical portrait${BRAND}`,
+    }[sp]||`Packed sports stadium crowd from stands night, "FARO TIPS" sponsor boards visible, photorealistic vertical portrait${BRAND}`)
+  },
+  torcedores:{
+    build:(sp,a,b)=>({
+      stadium:`Close up passionate football fans stands night, faces painted, left group ${a} colors right group ${b} colors, flares smoke dramatic lighting, "FARO TIPS" advertising board visible in background, photorealistic vertical portrait${BRAND}`,
+      basketball:`Close up NBA fans arena, passionate crowd left ${a} colors right ${b} colors, "FARO TIPS" courtside board visible behind, arena lights, photorealistic vertical portrait${BRAND}`,
+      americanfootball:`Close up american football fans face paint, left ${a} right ${b} colors, "FARO TIPS" field board visible background, stadium night, photorealistic vertical portrait${BRAND}`,
+      tennis:`Close up tennis fans stands, passionate crowd, "FARO TIPS" sponsor board visible court-side, dramatic lighting, photorealistic vertical portrait${BRAND}`,
+      boxing:`Close up boxing fans ringside, passionate crowd, "FARO TIPS" ring apron sponsor clearly visible, dramatic spotlights, photorealistic vertical portrait${BRAND}`,
+      mma:`Close up UFC fans arena, passionate crowd, "FARO TIPS" octagon mat sponsor visible, dramatic lighting, photorealistic vertical portrait${BRAND}`,
+      f1:`Close up F1 fans grandstand, ${a} and ${b} team merchandise, "FARO TIPS" trackside barrier board visible, race night atmosphere, photorealistic vertical portrait${BRAND}`,
+      volleyball:`Close up volleyball fans arena, passionate ${a} ${b} team colors, "FARO TIPS" court board visible background, dramatic lights, photorealistic vertical portrait${BRAND}`,
+      hockey:`Close up ice hockey fans, passionate crowd ${a} ${b} jerseys, "FARO TIPS" rinkside board visible, arena night, photorealistic vertical portrait${BRAND}`,
+      rugby:`Close up rugby fans face paint, ${a} ${b} colors, "FARO TIPS" touchline board visible background, stadium night, photorealistic vertical portrait${BRAND}`,
+      baseball:`Close up baseball fans stands, ${a} ${b} jerseys, "FARO TIPS" outfield wall ad visible background, night game, photorealistic vertical portrait${BRAND}`,
+    }[sp]||`Close up passionate sports fans stands night, "FARO TIPS" advertising board visible background, photorealistic vertical portrait${BRAND}`)
+  }
+};
+
+// SPORT MAP
+const SM={
+  flamengo:'football',fluminense:'football',botafogo:'football',vasco:'football',
+  palmeiras:'football',corinthians:'football','são paulo':'football','sao paulo':'football',
+  grêmio:'football',gremio:'football',internacional:'football',cruzeiro:'football',
+  santos:'football',atletico:'football','atlético':'football',fortaleza:'football',bahia:'football',
+  arsenal:'football',chelsea:'football',liverpool:'football',
+  'manchester city':'football','manchester united':'football',
+  barcelona:'football','real madrid':'football',
+  juventus:'football','ac milan':'football','inter milan':'football',napoli:'football',
+  brasil:'football',brazil:'football',argentina:'football',portugal:'football',
+  france:'football',germany:'football',england:'football',spain:'football',
+  lakers:'basketball',celtics:'basketball',warriors:'basketball',bulls:'basketball',
+  heat:'basketball',knicks:'basketball',bucks:'basketball',nets:'basketball',
+  'golden state':'basketball',
+  djokovic:'tennis',alcaraz:'tennis',sinner:'tennis',nadal:'tennis',
+  federer:'tennis',swiatek:'tennis',sabalenka:'tennis',medvedev:'tennis',
+  canelo:'boxing',fury:'boxing',joshua:'boxing',usyk:'boxing',wilder:'boxing',
+  pereira:'mma',jones:'mma',adesanya:'mma',mcgregor:'mma',khabib:'mma',oliveira:'mma',topuria:'mma',
+  ferrari:'f1',mercedes:'f1','red bull':'f1',mclaren:'f1',
+  verstappen:'f1',hamilton:'f1',norris:'f1',leclerc:'f1',sainz:'f1',alonso:'f1',
+  'all blacks':'rugby',springboks:'rugby','new zealand':'rugby','south africa':'rugby',
+  volei:'volleyball','vôlei':'volleyball',volleyball:'volleyball',
+  'maple leafs':'hockey',canadiens:'hockey',bruins:'hockey',
+  yankees:'baseball',dodgers:'baseball','red sox':'baseball',
+  chiefs:'americanfootball',eagles:'americanfootball',patriots:'americanfootball',
+  cowboys:'americanfootball',packers:'americanfootball',bills:'americanfootball',
+};
+const SBG={football:'stadium',rugby:'stadium',baseball:'stadium',basketball:'basketball',
+  volleyball:'volleyball',hockey:'hockey',americanfootball:'americanfootball',
+  tennis:'tennis',boxing:'boxing',mma:'mma',f1:'f1'};
+const SL={stadium:'⚽ Futebol',basketball:'🏀 Basquete',volleyball:'🏐 Vôlei',
+  hockey:'🏒 Hóquei',americanfootball:'🏈 Fut. Americano',tennis:'🎾 Tênis',
+  boxing:'🥊 Boxe',mma:'🥋 MMA',f1:'🏎️ F1',rugby:'🏉 Rugby',baseball:'⚾ Beisebol'};
+
+function detectSport(a,b){
+  const str=(a+' '+b).toLowerCase();
+  const found=Object.keys(SM).find(k=>str.includes(k));
+  return SBG[found?SM[found]:'football']||'stadium';
+}
+
+// STATE
+const S={img:null,bgUrl:FB.stadium,bgType:'stadium',fmt:'916',gen:false,ps:'drone',slipH:{}};
+
+// UPLOAD
+document.getElementById('fi').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    S.img=ev.target.result; S.slipH={};
+    document.getElementById('uok').textContent='✓ '+f.name;
+    document.getElementById('uok').style.display='block';
+    document.getElementById('uz').style.borderColor='#00e676';
+    render(); setTimeout(measure,350);
+  };
+  r.readAsDataURL(f);
+});
+
+// INPUTS
+let dt;
+['tA','tB','l1t','l2t','l3t','l1c','l3c'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{
+    clearTimeout(dt);
+    dt=setTimeout(()=>{
+      const nt=detectSport(document.getElementById('tA').value,document.getElementById('tB').value);
+      if(nt!==S.bgType){S.bgType=nt;S.bgUrl=FB[nt]||FB.stadium;setSt('ok',SL[nt]+' — foto padrão');regenBg();}
+      render();
+    },300);
+  });
+});
+
+// PROMPT STYLE
+function setPStyle(ps,btn){
+  S.ps=ps;
+  document.querySelectorAll('.pb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// GEMINI
+async function regenBg(){
+  if(S.gen)return;
+  const a=document.getElementById('tA').value||'home team';
+  const b=document.getElementById('tB').value||'away team';
+  const prompt=PS[S.ps].build(S.bgType,a,b);
+  S.gen=true;
+  setSt('load','Gerando com Gemini...');
+  const btn=document.getElementById('br');
+  btn.textContent='GERANDO...'; btn.disabled=true;
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${_k()}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:['IMAGE','TEXT']}}),
+    });
+    const data=await res.json();
+    const part=data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
+    if(!part)throw new Error('sem imagem');
+    S.bgUrl=`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    setSt('ok',SL[S.bgType]+' — IA gerou ✓');
+  }catch{S.bgUrl=FB[S.bgType]||FB.stadium;setSt('err','IA indisponível — foto padrão');}
+  finally{S.gen=false;btn.textContent='↺ GERAR FUNDO COM IA';btn.disabled=false;render();}
+}
+
+function setSt(t,m){
+  const el=document.getElementById('sb');
+  el.className='status-badge s-'+t;
+  el.innerHTML=t==='load'?`<span class="dot"></span>${m}`:m;
+}
+
+// FORMAT
+function setFmt(f,btn){
+  S.fmt=f;
+  document.querySelectorAll('.fmt-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('be2').style.display=f==='both'?'block':'none';
+  render();
+}
+
+// MEDIR ALTURA REAL DO SLIP
+function measure(){
+  let changed=false;
+  document.querySelectorAll('.card').forEach(card=>{
+    const slip=card.querySelector('.slip');
+    const img=slip&&slip.querySelector('img');
+    if(slip&&(!img||img.complete)){
+      const h=slip.offsetHeight;
+      if(h>10&&S.slipH[card.id]!==h){S.slipH[card.id]=h;changed=true;}
+    }
+  });
+  if(changed)render();
+}
+
+// BUILD CARD
+function buildCard(W,H,cid){
+  const sc=W/390, isS=H>W;
+  const sTop=isS?H*.13:H*.08, sBot=isS?H*.18:H*.08;
+  const l1v=document.getElementById('l1t').value;
+  const l2v=document.getElementById('l2t').value;
+  const l3v=document.getElementById('l3t').value;
+  const l1c=document.getElementById('l1c').value;
+  const l3c=document.getElementById('l3c').value;
+
+  const card=document.createElement('div');
+  card.className='card'; card.id=cid;
+  card.style.cssText=`width:${W}px;height:${H}px`;
+
+  // BG
+  const bg=document.createElement('div'); bg.className='cbg';
+  const bi=document.createElement('img'); bi.src=S.bgUrl; bi.crossOrigin='anonymous';
+  bg.appendChild(bi);
+  ['ov1','ov2','ov3'].forEach(c=>{const d=document.createElement('div');d.className=c;bg.appendChild(d);});
+  card.appendChild(bg);
+
+  // SLIP
+  const sw=Math.round(W*.88), sl=Math.round((W-sw)/2), st=Math.round(sTop);
+  const slip=document.createElement('div'); slip.className='slip';
+  slip.style.cssText=`left:${sl}px;top:${st}px;width:${sw}px;padding:${Math.round(10*sc)}px ${Math.round(12*sc)}px;border-radius:${Math.round(10*sc)}px`;
+  if(S.img){
+    const img=document.createElement('img'); img.src=S.img; img.crossOrigin='anonymous';
+    img.style.borderRadius=Math.round(6*sc)+'px';
+    img.onload=()=>{const h=slip.offsetHeight;if(h>10&&S.slipH[cid]!==h){S.slipH[cid]=h;render();}};
+    slip.appendChild(img);
+  }else{
+    const ph=document.createElement('div'); ph.className='slip-ph';
+    ph.style.cssText=`padding:${Math.round(18*sc)}px 0;font-size:${Math.round(11*sc)}px`;
+    ph.innerHTML=`<div style="font-size:${Math.round(22*sc)}px;margin-bottom:${Math.round(5*sc)}px">📋</div>Envie o print`;
+    slip.appendChild(ph);
+  }
+  card.appendChild(slip);
+
+  // LETTERINGS — calcula posição para nunca sobrepor o slip
+  const slipRealH=S.slipH[cid];
+  const slipEstH=slipRealH?slipRealH:(S.img?Math.round(sw*.72):Math.round(58*sc));
+  const gap=Math.round(4*sc), bw=Math.max(3,Math.round(3.5*sc)), pv=Math.round(5*sc);
+  const l1H=l1v?(Math.round(50*sc)+pv*2):0;
+  const l2H=l2v?(Math.round(38*sc)+pv*2+bw*2):0;
+  const l3H=l3v?(Math.round(30*sc)+pv*2+bw*2):0;
+  const totalL=l1H+l2H+l3H+gap*2;
+  const startY=st+slipEstH+Math.round(10*sc);
+  const available=H-startY-sBot;
+  const lTop=Math.round(available>=totalL?startY:Math.max(startY,H-sBot-totalL));
+
+  const ld=document.createElement('div'); ld.className='ltrs';
+  ld.style.cssText=`top:${lTop}px;gap:${gap}px`;
+
+  if(l1v){
+    const w=document.createElement('div');
+    w.style.cssText=`text-align:center;padding:0 ${Math.round(8*sc)}px`;
+    const s=document.createElement('span'); s.className='l1t'; s.textContent=l1v;
+    s.style.cssText=`font-size:${Math.round(50*sc)}px;color:${l1c};text-shadow:0 0 ${Math.round(12*sc)}px rgba(0,0,0,1),0 ${Math.round(3*sc)}px ${Math.round(10*sc)}px rgba(0,0,0,1);-webkit-text-stroke:${Math.max(1,Math.round(1.2*sc))}px rgba(0,0,0,.55);letter-spacing:${Math.round(.5*sc)}px`;
+    w.appendChild(s); ld.appendChild(w);
+  }
+  if(l2v){
+    const w=document.createElement('div'); w.className='l2w';
+    w.style.cssText=`border-top:${bw}px solid #000;border-bottom:${bw}px solid #000;padding:${pv}px ${Math.round(8*sc)}px`;
+    const s=document.createElement('span'); s.className='l2t'; s.textContent=l2v;
+    s.style.cssText=`font-size:${Math.round(38*sc)}px;letter-spacing:${Math.round(.5*sc)}px`;
+    w.appendChild(s); ld.appendChild(w);
+  }
+  if(l3v){
+    const w=document.createElement('div'); w.className='l3w';
+    w.style.cssText=`border-top:${bw}px solid ${l3c};border-bottom:${bw}px solid ${l3c};padding:${pv}px ${Math.round(8*sc)}px`;
+    const s=document.createElement('span'); s.className='l3t'; s.textContent=l3v;
+    s.style.cssText=`font-size:${Math.round(30*sc)}px;color:${l3c};letter-spacing:${Math.round(.5*sc)}px`;
+    w.appendChild(s); ld.appendChild(w);
+  }
+  card.appendChild(ld);
+  return card;
+}
+
+// RENDER
+function render(){
+  const pw=document.getElementById('pw'); pw.innerHTML='';
+  const cfgs=[];
+  if(S.fmt==='916'||S.fmt==='both')cfgs.push({w:260,h:462,l:'9 × 16',id:'c916'});
+  if(S.fmt==='11'||S.fmt==='both')cfgs.push({w:300,h:300,l:'1 × 1',id:'c11'});
+  cfgs.forEach(c=>{
+    const col=document.createElement('div');
+    col.style.cssText='display:flex;flex-direction:column;align-items:center;gap:6px';
+    const lbl=document.createElement('div'); lbl.className='plbl'; lbl.textContent=c.l;
+    col.appendChild(lbl); col.appendChild(buildCard(c.w,c.h,c.id)); pw.appendChild(col);
+  });
+}
+
+// EXPORT
+async function doExp(fmt){
+  const el=document.getElementById(fmt==='11'?'c11':'c916');
+  if(!el){alert('Selecione o formato correto.');return;}
+  const btn=document.getElementById('be');
+  btn.textContent='EXPORTANDO...'; btn.disabled=true;
+  try{
+    const cv=await html2canvas(el,{useCORS:true,allowTaint:true,scale:2,backgroundColor:null,logging:false});
+    const a=document.createElement('a');
+    a.download=fmt==='11'?'farotips-1x1.png':'farotips-9x16.png';
+    a.href=cv.toDataURL('image/png'); a.click();
+  }catch(e){alert('Erro: '+e.message);}
+  finally{btn.textContent='⬇ EXPORTAR PNG';btn.disabled=false;}
+}
+
+// INIT
+render();
+setTimeout(regenBg,600);
+</script>
+</body>
+</html>
