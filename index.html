@@ -66,6 +66,11 @@ input[type=color]{width:32px;height:32px;padding:2px;cursor:pointer;border-radiu
 .l2t{font-family:'Anton',sans-serif;text-transform:uppercase;color:#000;line-height:1;display:block}
 .l3w{background:#fff;text-align:center}
 .l3t{font-family:'Anton',sans-serif;text-transform:uppercase;line-height:1;display:block}
+
+/* DEBUG TOAST */
+#dbg-toast{position:fixed;bottom:12px;right:12px;max-width:340px;background:#1a0a0a;border:1px solid #e05555;border-radius:8px;padding:10px 13px;font-size:10px;font-family:monospace;color:#ff6b6b;z-index:9999;display:none;word-break:break-all;line-height:1.5}
+#dbg-toast b{color:#ff9999;display:block;margin-bottom:3px;font-size:11px}
+#dbg-toast span{color:#888;font-size:9px}
 </style>
 </head>
 <body>
@@ -137,6 +142,18 @@ input[type=color]{width:32px;height:32px;padding:2px;cursor:pointer;border-radiu
 </div>
 
 <script>
+// DEBUG HELPER — mostra erro visível na tela
+function dbg(msg, step){
+  const t=document.getElementById('dbg-toast');
+  const m=document.getElementById('dbg-msg');
+  const s=document.getElementById('dbg-step');
+  m.textContent=msg;
+  s.textContent=step?'Etapa: '+step:'';
+  t.style.display='block';
+  console.error('[FaroTips DBG]',step,'→',msg);
+  clearTimeout(t._hide);
+  t._hide=setTimeout(()=>t.style.display='none', 15000);
+}
 // Pollinations.ai — sem chave necessária ✓
 
 const FB={
@@ -350,6 +367,7 @@ async function regenBg(){
     const tOut=setTimeout(()=>{
       img.onload=img.onerror=null;
       img.src='';
+      dbg('Timeout de 50s atingido — Pollinations não respondeu a tempo','timeout');
       giveUp(false);
     },50000);
 
@@ -361,8 +379,8 @@ async function regenBg(){
         cv.height=img.naturalHeight||960;
         cv.getContext('2d').drawImage(img,0,0);
         S.bgUrl=cv.toDataURL('image/jpeg',0.92);
-      }catch(_){
-        // Fallback: usa URL direta se canvas bloquear (taint)
+      }catch(canvasErr){
+        dbg('Canvas taint: '+canvasErr.message+' — usando URL direta','canvas.toDataURL');
         S.bgUrl=pollUrl;
       }
       setSt('ok',SL[S.bgType]+' — IA gerou ✓');
@@ -370,8 +388,12 @@ async function regenBg(){
       giveUp(true);
     };
 
-    img.onerror=()=>giveUp(false);
+    img.onerror=(e)=>{
+      dbg('Image.onerror disparou — URL: '+pollUrl.slice(0,80)+'...','img.onerror');
+      giveUp(false);
+    };
     img.src=pollUrl;
+    console.info('[FaroTips] Iniciando load:',pollUrl.slice(0,100));
   });
 
   S.gen=false;
@@ -524,5 +546,6 @@ async function doExp(fmt){
 render();
 setTimeout(regenBg,600);
 </script>
+<div id="dbg-toast"><b>🐛 DEBUG</b><div id="dbg-msg"></div><span id="dbg-step"></span></div>
 </body>
 </html>
