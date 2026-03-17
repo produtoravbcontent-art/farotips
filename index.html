@@ -321,7 +321,6 @@ async function regenBg(){
   if(S.gen)return;
   const a=document.getElementById('tA').value||'home team';
   const b=document.getElementById('tB').value||'away team';
-  // Limit prompt to 400 chars — long URLs can fail on some servers
   const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,400);
   S.gen=true;
   setSt('load','Gerando com IA...');
@@ -332,30 +331,48 @@ async function regenBg(){
   const seed=Math.floor(Math.random()*99999);
   const pollUrl=`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=540&height=960&seed=${seed}&nologo=true&model=flux`;
 
-  try{
-    // Fetch como blob e converte para data URL
-    // Isso resolve CORS no preview E no html2canvas export
-    const fetchWithTimeout=()=>Promise.race([
-      fetch(pollUrl),
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout 50s')),50000))
-    ]);
-    const res=await fetchWithTimeout();
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const blob=await res.blob();
-    S.bgUrl=await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=()=>res(r.result);
-      r.onerror=()=>rej(new Error('FileReader failed'));
-      r.readAsDataURL(blob);
-    });
-    setSt('ok',SL[S.bgType]+' — IA gerou ✓');
-    finishProgress(true);
-  }catch(e){
-    console.warn('[FaroTips] Pollinations falhou:',e.message);
-    S.bgUrl=FB[S.bgType]||FB.stadium;
-    setSt('err','IA indisponível — foto padrão');
-    finishProgress(false);
-  }
+  // Usa Image puro — sem fetch, sem AbortController, funciona em qualquer sandbox
+  await new Promise((resolve)=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+
+    const giveUp=(ok)=>{
+      clearTimeout(tOut);
+      if(!ok){
+        S.bgUrl=FB[S.bgType]||FB.stadium;
+        setSt('err','IA indisponível — foto padrão');
+        finishProgress(false);
+      }
+      resolve();
+    };
+
+    // Timeout de 50s sem AbortController
+    const tOut=setTimeout(()=>{
+      img.onload=img.onerror=null;
+      img.src='';
+      giveUp(false);
+    },50000);
+
+    img.onload=()=>{
+      // Converte para base64 via canvas (resolve CORS no html2canvas)
+      try{
+        const cv=document.createElement('canvas');
+        cv.width=img.naturalWidth||540;
+        cv.height=img.naturalHeight||960;
+        cv.getContext('2d').drawImage(img,0,0);
+        S.bgUrl=cv.toDataURL('image/jpeg',0.92);
+      }catch(_){
+        // Fallback: usa URL direta se canvas bloquear (taint)
+        S.bgUrl=pollUrl;
+      }
+      setSt('ok',SL[S.bgType]+' — IA gerou ✓');
+      finishProgress(true);
+      giveUp(true);
+    };
+
+    img.onerror=()=>giveUp(false);
+    img.src=pollUrl;
+  });
 
   S.gen=false;
   btn.textContent='↺ GERAR FUNDO COM IA';
