@@ -338,7 +338,7 @@ async function regenBg(){
   if(S.gen)return;
   const a=document.getElementById('tA').value||'home team';
   const b=document.getElementById('tB').value||'away team';
-  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,400);
+  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,350);
   S.gen=true;
   setSt('load','Gerando com IA...');
   const btn=document.getElementById('br');
@@ -346,54 +346,39 @@ async function regenBg(){
   startProgress();
 
   const seed=Math.floor(Math.random()*99999);
-  const pollUrl=`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=540&height=960&seed=${seed}&nologo=true&model=flux`;
+  const pollUrl='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model=flux';
 
-  // Usa Image puro — sem fetch, sem AbortController, funciona em qualquer sandbox
-  await new Promise((resolve)=>{
-    const img=new Image();
-    img.crossOrigin='anonymous';
+  dbg('URL gerada — aguardando imagem...','init');
 
-    const giveUp=(ok)=>{
+  await new Promise(function(resolve){
+    var done=false;
+    var img=new Image(); // SEM crossOrigin — evita bloqueio CORS silencioso
+
+    var finish=function(ok, reason){
+      if(done)return; done=true;
       clearTimeout(tOut);
-      if(!ok){
+      img.onload=null; img.onerror=null;
+      if(ok){
+        S.bgUrl=pollUrl;
+        setSt('ok',SL[S.bgType]+' — IA gerou ✓');
+        finishProgress(true);
+        dbg('Imagem carregada! w='+img.naturalWidth+' h='+img.naturalHeight,'success');
+      } else {
         S.bgUrl=FB[S.bgType]||FB.stadium;
         setSt('err','IA indisponível — foto padrão');
         finishProgress(false);
+        dbg('Falhou: '+reason,'error');
       }
       resolve();
     };
 
-    // Timeout de 50s sem AbortController
-    const tOut=setTimeout(()=>{
-      img.onload=img.onerror=null;
-      img.src='';
-      dbg('Timeout de 50s atingido — Pollinations não respondeu a tempo','timeout');
-      giveUp(false);
-    },50000);
+    var tOut=setTimeout(function(){
+      finish(false,'Timeout 50s — Pollinations sem resposta');
+    }, 50000);
 
-    img.onload=()=>{
-      // Converte para base64 via canvas (resolve CORS no html2canvas)
-      try{
-        const cv=document.createElement('canvas');
-        cv.width=img.naturalWidth||540;
-        cv.height=img.naturalHeight||960;
-        cv.getContext('2d').drawImage(img,0,0);
-        S.bgUrl=cv.toDataURL('image/jpeg',0.92);
-      }catch(canvasErr){
-        dbg('Canvas taint: '+canvasErr.message+' — usando URL direta','canvas.toDataURL');
-        S.bgUrl=pollUrl;
-      }
-      setSt('ok',SL[S.bgType]+' — IA gerou ✓');
-      finishProgress(true);
-      giveUp(true);
-    };
-
-    img.onerror=(e)=>{
-      dbg('Image.onerror disparou — URL: '+pollUrl.slice(0,80)+'...','img.onerror');
-      giveUp(false);
-    };
+    img.onload=function(){ finish(true,'ok'); };
+    img.onerror=function(){ finish(false,'img.onerror disparou'); };
     img.src=pollUrl;
-    console.info('[FaroTips] Iniciando load:',pollUrl.slice(0,100));
   });
 
   S.gen=false;
