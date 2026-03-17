@@ -327,10 +327,11 @@ async function regenBg(){
   btn.textContent='GERANDO...'; btn.disabled=true;
   startProgress();
 
-  // Tenta múltiplos modelos em sequência
+  // Tenta múltiplos modelos em sequência (do mais novo ao mais antigo)
   const endpoints=[
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${_k()}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${_k()}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${_k()}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${_k()}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${_k()}`,
   ];
 
   let generated=false;
@@ -343,16 +344,21 @@ async function regenBg(){
           generationConfig:{responseModalities:['IMAGE','TEXT']},
         }),
       });
-      if(!res.ok) continue;
+      if(!res.ok){
+        const errData=await res.json().catch(()=>({}));
+        console.warn('[FaroTips] Modelo falhou:',url.split('/models/')[1]?.split(':')[0],'→',res.status,errData?.error?.message||'');
+        continue;
+      }
       const data=await res.json();
       const part=data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
-      if(!part) continue;
+      if(!part){console.warn('[FaroTips] Sem imagem na resposta de:',url.split('/models/')[1]?.split(':')[0]);continue;}
       S.bgUrl=`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       setSt('ok',SL[S.bgType]+' — IA gerou ✓');
       finishProgress(true);
       generated=true;
+      console.info('[FaroTips] Imagem gerada com sucesso via:',url.split('/models/')[1]?.split(':')[0]);
       break;
-    }catch(e){ continue; }
+    }catch(e){console.warn('[FaroTips] Erro em fetch:',e.message);continue;}
   }
 
   if(!generated){
