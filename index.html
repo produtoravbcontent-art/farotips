@@ -348,7 +348,7 @@ async function regenBg(){
 
   // HuggingFace Inference API — gratuito, CORS liberado
   // Token público read-only (somente inferência, sem acesso a dados)
-  const HF_TOKEN='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';
+  // Sem token — modelos públicos HF funcionam anonimamente (com rate limit)
   const HF_MODELS=[
     'black-forest-labs/FLUX.1-schnell',
     'stabilityai/stable-diffusion-xl-base-1.0',
@@ -363,7 +363,6 @@ async function regenBg(){
           fetch('https://api-inference.huggingface.co/models/'+model,{
             method:'POST',
             headers:{
-              'Authorization':'Bearer '+HF_TOKEN,
               'Content-Type':'application/json'
             },
             body:JSON.stringify({inputs:prompt,parameters:{width:576,height:1024}})
