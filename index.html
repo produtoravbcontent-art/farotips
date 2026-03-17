@@ -292,11 +292,15 @@ function startProgress(){
   pw.style.display='block'; pb.style.width='0%';
   const steps=[
     [400,'8%','INICIANDO...'],
-    [1200,'25%','CRIANDO CENA...'],
-    [2500,'45%','GERANDO IA...'],
-    [4000,'65%','ADICIONANDO TORCIDA...'],
-    [5500,'80%','FINALIZANDO...'],
-    [7000,'92%','QUASE PRONTO...'],
+    [1200,'22%','CRIANDO CENA...'],
+    [2800,'38%','GERANDO IA...'],
+    [5000,'52%','RENDERIZANDO...'],
+    [8000,'63%','ADICIONANDO TORCIDA...'],
+    [12000,'72%','DETALHANDO...'],
+    [17000,'80%','FINALIZANDO...'],
+    [22000,'87%','QUASE PRONTO...'],
+    [28000,'92%','AGUARDANDO SERVIDOR...'],
+    [34000,'95%','RECEBENDO IMAGEM...'],
   ];
   steps.forEach(([delay,w,txt])=>{
     _pgTimer=setTimeout(()=>{pb.style.width=w;pt.textContent=txt;},delay);
@@ -332,7 +336,7 @@ async function regenBg(){
     // Fetch como blob e converte para data URL
     // Isso resolve CORS no preview E no html2canvas export
     const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),35000);
+    const timer=setTimeout(()=>controller.abort(),50000);
     const res=await fetch(pollUrl,{signal:controller.signal});
     clearTimeout(timer);
     if(!res.ok) throw new Error('HTTP '+res.status);
