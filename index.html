@@ -335,10 +335,11 @@ async function regenBg(){
   try{
     // Fetch como blob e converte para data URL
     // Isso resolve CORS no preview E no html2canvas export
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),50000);
-    const res=await fetch(pollUrl,{signal:controller.signal});
-    clearTimeout(timer);
+    const fetchWithTimeout=()=>Promise.race([
+      fetch(pollUrl),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout 50s')),50000))
+    ]);
+    const res=await fetchWithTimeout();
     if(!res.ok) throw new Error('HTTP '+res.status);
     const blob=await res.blob();
     S.bgUrl=await new Promise((res,rej)=>{
