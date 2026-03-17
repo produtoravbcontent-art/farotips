@@ -346,43 +346,91 @@ async function regenBg(){
   btn.textContent='GERANDO...'; btn.disabled=true;
   startProgress();
 
-  const seed=Math.floor(Math.random()*99999);
-  const models=['flux','turbo','nanobanana'];
-  let ok=false;
+  // HuggingFace Inference API — gratuito, CORS liberado
+  // Token público read-only (somente inferência, sem acesso a dados)
+  const HF_TOKEN='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';
+  const HF_MODELS=[
+    'black-forest-labs/FLUX.1-schnell',
+    'stabilityai/stable-diffusion-xl-base-1.0',
+  ];
 
-  for(let i=0;i<models.length;i++){
-    const model=models[i];
-    const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model='+model;
-    dbg('Tentando: '+model,'fetch-'+i);
-    try{
-      const res=await Promise.race([
-        fetch(url),
-        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),90000))
-      ]);
-      if(!res.ok){ dbg('HTTP '+res.status+' no modelo '+model,'http-error'); continue; }
-      const blob=await res.blob();
-      if(!blob||blob.size<1000){ dbg('Blob vazio/pequeno: '+blob.size+'b','blob-empty'); continue; }
-      const dataUrl=await new Promise((res,rej)=>{
-        const fr=new FileReader();
-        fr.onload=()=>res(fr.result);
-        fr.onerror=()=>rej(new Error('FileReader'));
-        fr.readAsDataURL(blob);
-      });
-      S.bgUrl=dataUrl;
-      setSt('ok',SL[S.bgType]+' — IA gerou ✓ ('+model+')');
-      finishProgress(true);
-      dbg('SUCESSO! modelo='+model+' size='+blob.size,'done');
-      ok=true;
-      break;
-    }catch(e){
-      dbg('Erro '+model+': '+e.message,'catch-'+i);
+  // Pollinations como último recurso (sem fetch, usa img tag)
+  async function tryHuggingFace(){
+    for(const model of HF_MODELS){
+      dbg('Tentando HF: '+model.split('/')[1],'hf');
+      try{
+        const res=await Promise.race([
+          fetch('https://api-inference.huggingface.co/models/'+model,{
+            method:'POST',
+            headers:{
+              'Authorization':'Bearer '+HF_TOKEN,
+              'Content-Type':'application/json'
+            },
+            body:JSON.stringify({inputs:prompt,parameters:{width:576,height:1024}})
+          }),
+          new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout 90s')),90000))
+        ]);
+        dbg('HF status: '+res.status+' model='+model.split('/')[1],'hf-status');
+        if(res.status===503){
+          // Modelo carregando — tenta de novo em 10s
+          dbg('Modelo carregando, aguardando 10s...','hf-loading');
+          await new Promise(r=>setTimeout(r,10000));
+          continue;
+        }
+        if(!res.ok) continue;
+        const blob=await res.blob();
+        if(!blob||blob.size<5000){ dbg('Blob pequeno: '+blob.size,'hf-blob'); continue; }
+        const dataUrl=await new Promise((res,rej)=>{
+          const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob);
+        });
+        return dataUrl;
+      }catch(e){ dbg('HF erro: '+e.message,'hf-catch'); }
     }
+    return null;
   }
 
-  if(!ok){
+  // Pollinations via img tag (sem fetch, sem CORS)
+  async function tryPollinations(){
+    const seed=Math.floor(Math.random()*99999);
+    const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model=flux';
+    dbg('Tentando Pollinations img tag...','poll');
+    return new Promise(function(resolve){
+      var img=new Image();
+      var done=false;
+      var t=setTimeout(function(){
+        if(done)return; done=true;
+        img.onload=img.onerror=null; img.src='';
+        dbg('Pollinations timeout 90s','poll-timeout');
+        resolve(null);
+      },90000);
+      img.onload=function(){
+        if(done)return; done=true;
+        clearTimeout(t);
+        dbg('Pollinations OK w='+img.naturalWidth,'poll-ok');
+        resolve(url);
+      };
+      img.onerror=function(){
+        if(done)return; done=true;
+        clearTimeout(t);
+        dbg('Pollinations img.onerror','poll-err');
+        resolve(null);
+      };
+      img.src=url;
+    });
+  }
+
+  let result=await tryHuggingFace();
+  if(!result) result=await tryPollinations();
+
+  if(result){
+    S.bgUrl=result;
+    setSt('ok',SL[S.bgType]+' — IA gerou ✓');
+    finishProgress(true);
+  } else {
     S.bgUrl=FB[S.bgType]||FB.stadium;
     setSt('err','IA indisponível — foto padrão');
     finishProgress(false);
+    dbg('Todos os serviços falharam','all-failed');
   }
 
   S.gen=false;
