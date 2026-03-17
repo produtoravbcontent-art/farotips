@@ -338,7 +338,7 @@ async function regenBg(){
   if(S.gen)return;
   const a=document.getElementById('tA').value||'home team';
   const b=document.getElementById('tB').value||'away team';
-  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,350);
+  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,150);
   S.gen=true;
   setSt('load','Gerando com IA...');
   const btn=document.getElementById('br');
@@ -346,7 +346,7 @@ async function regenBg(){
   startProgress();
 
   const seed=Math.floor(Math.random()*99999);
-  const pollUrl='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model=flux';
+  const pollUrl='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model=turbo';
 
   dbg('URL gerada — aguardando imagem...','init');
 
@@ -374,7 +374,7 @@ async function regenBg(){
 
     var tOut=setTimeout(function(){
       finish(false,'Timeout 50s — Pollinations sem resposta');
-    }, 50000);
+    }, 25000);
 
     img.onload=function(){ finish(true,'ok'); };
     img.onerror=function(){ finish(false,'img.onerror disparou'); };
