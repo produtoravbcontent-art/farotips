@@ -308,16 +308,15 @@ function startProgress(){
   const pt=document.getElementById('progress-text');
   pw.style.display='block'; pb.style.width='0%';
   const steps=[
-    [400,'8%','INICIANDO...'],
-    [1200,'22%','CRIANDO CENA...'],
-    [2800,'38%','GERANDO IA...'],
-    [5000,'52%','RENDERIZANDO...'],
-    [8000,'63%','ADICIONANDO TORCIDA...'],
-    [12000,'72%','DETALHANDO...'],
-    [17000,'80%','FINALIZANDO...'],
-    [22000,'87%','QUASE PRONTO...'],
-    [28000,'92%','AGUARDANDO SERVIDOR...'],
-    [34000,'95%','RECEBENDO IMAGEM...'],
+    [400,'5%','INICIANDO...'],
+    [2000,'15%','CRIANDO CENA...'],
+    [8000,'30%','GERANDO IA...'],
+    [18000,'45%','RENDERIZANDO...'],
+    [30000,'58%','ADICIONANDO DETALHES...'],
+    [45000,'70%','FINALIZANDO...'],
+    [60000,'82%','QUASE PRONTO...'],
+    [75000,'92%','RECEBENDO IMAGEM...'],
+    [85000,'96%','CHEGANDO...'],
   ];
   steps.forEach(([delay,w,txt])=>{
     _pgTimer=setTimeout(()=>{pb.style.width=w;pt.textContent=txt;},delay);
@@ -338,7 +337,7 @@ async function regenBg(){
   if(S.gen)return;
   const a=document.getElementById('tA').value||'home team';
   const b=document.getElementById('tB').value||'away team';
-  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,150);
+  const prompt=PS[S.ps].build(S.bgType,a,b).slice(0,300);
   S.gen=true;
   setSt('load','Gerando com IA...');
   const btn=document.getElementById('br');
@@ -346,7 +345,7 @@ async function regenBg(){
   startProgress();
 
   const seed=Math.floor(Math.random()*99999);
-  const pollUrl='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model=turbo';
+  const pollUrl='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=540&height=960&seed='+seed+'&nologo=true&model=flux';
 
   dbg('URL gerada — aguardando imagem...','init');
 
@@ -373,8 +372,8 @@ async function regenBg(){
     };
 
     var tOut=setTimeout(function(){
-      finish(false,'Timeout 50s — Pollinations sem resposta');
-    }, 25000);
+      finish(false,'Timeout 90s — Pollinations sem resposta');
+    }, 90000);
 
     img.onload=function(){ finish(true,'ok'); };
     img.onerror=function(){ finish(false,'img.onerror disparou'); };
@@ -529,7 +528,6 @@ async function doExp(fmt){
 
 // INIT
 render();
-setTimeout(regenBg,600);
 </script>
 <div id="dbg-toast"><b>🐛 DEBUG</b><div id="dbg-msg"></div><span id="dbg-step"></span></div>
 </body>
