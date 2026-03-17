@@ -128,7 +128,7 @@ input[type=color]{width:32px;height:32px;padding:2px;cursor:pointer;border-radiu
 
   <button class="btn-exp" id="be" onclick="doExp('916')">⬇ EXPORTAR PNG</button>
   <button class="btn-exp2" id="be2" onclick="doExp('11')">⬇ EXPORTAR 1×1</button>
-  <p style="font-size:9px;color:#1a1a1a;text-align:center">Gemini Image · Safe zones · Export 2×</p>
+  <p style="font-size:9px;color:#1a1a1a;text-align:center">Pollinations.ai · Gratuito · Export 2×</p>
 </div>
 
 <div id="preview-area">
@@ -137,9 +137,7 @@ input[type=color]{width:32px;height:32px;padding:2px;cursor:pointer;border-radiu
 </div>
 
 <script>
-// CHAVE EM PARTES — não aparece direto no código
-const _p=['AIzaSyC7','Ji8bXjcf','Feuffb-Ao','HtzaS9wR5S6WeA'];
-const _k=()=>_p.join('');
+// Pollinations.ai — sem chave necessária ✓
 
 const FB={
   stadium:'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&q=85',
@@ -322,46 +320,32 @@ async function regenBg(){
   const b=document.getElementById('tB').value||'away team';
   const prompt=PS[S.ps].build(S.bgType,a,b);
   S.gen=true;
-  setSt('load','Gerando com Gemini...');
+  setSt('load','Gerando com IA...');
   const btn=document.getElementById('br');
   btn.textContent='GERANDO...'; btn.disabled=true;
   startProgress();
 
-  // Tenta múltiplos modelos em sequência (do mais novo ao mais antigo)
-  const endpoints=[
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${_k()}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${_k()}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${_k()}`,
-  ];
+  // Pollinations.ai — 100% free, sem API key, ~15 imgs/dia de boa
+  const seed=Math.floor(Math.random()*99999);
+  const encoded=encodeURIComponent(prompt);
+  const pollUrl=`https://image.pollinations.ai/prompt/${encoded}?width=540&height=960&seed=${seed}&nologo=true&enhance=true&model=flux`;
 
-  let generated=false;
-  for(const url of endpoints){
-    try{
-      const res=await fetch(url,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          contents:[{parts:[{text:prompt}]}],
-          generationConfig:{responseModalities:['IMAGE','TEXT']},
-        }),
-      });
-      if(!res.ok){
-        const errData=await res.json().catch(()=>({}));
-        console.warn('[FaroTips] Modelo falhou:',url.split('/models/')[1]?.split(':')[0],'→',res.status,errData?.error?.message||'');
-        continue;
-      }
-      const data=await res.json();
-      const part=data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
-      if(!part){console.warn('[FaroTips] Sem imagem na resposta de:',url.split('/models/')[1]?.split(':')[0]);continue;}
-      S.bgUrl=`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-      setSt('ok',SL[S.bgType]+' — IA gerou ✓');
-      finishProgress(true);
-      generated=true;
-      console.info('[FaroTips] Imagem gerada com sucesso via:',url.split('/models/')[1]?.split(':')[0]);
-      break;
-    }catch(e){console.warn('[FaroTips] Erro em fetch:',e.message);continue;}
-  }
-
-  if(!generated){
+  try{
+    // Pré-carrega a imagem para confirmar que gerou
+    await new Promise((resolve,reject)=>{
+      const img=new Image();
+      img.crossOrigin='anonymous';
+      img.onload=resolve;
+      img.onerror=reject;
+      img.src=pollUrl;
+      setTimeout(()=>reject(new Error('timeout')),25000);
+    });
+    S.bgUrl=pollUrl;
+    setSt('ok',SL[S.bgType]+' — IA gerou ✓');
+    finishProgress(true);
+    console.info('[FaroTips] Pollinations OK:',pollUrl);
+  }catch(e){
+    console.warn('[FaroTips] Pollinations falhou:',e.message);
     S.bgUrl=FB[S.bgType]||FB.stadium;
     setSt('err','IA indisponível — foto padrão');
     finishProgress(false);
@@ -454,7 +438,7 @@ function buildCard(W,H,cid){
   const totalL=l1H+l2H+l3H+gap*2;
   const startY=st+slipEstH+Math.round(8*sc);
   const available=H-startY-sBot;
-  const lTop=Math.round(available>=totalL?startY:Math.max(startY,H-safeBot*0.5-totalL));
+  const lTop=Math.round(available>=totalL?startY:Math.max(startY,H-sBot*0.5-totalL));
 
   const ld=document.createElement('div'); ld.className='ltrs';
   ld.style.cssText=`top:${lTop}px;gap:${gap}px`;
